@@ -1,6 +1,7 @@
 package com.example.noteroomdb
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,12 +25,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,28 +85,27 @@ class MainActivity : ComponentActivity() {
                 viewModel.getNotes().observe(this) {
                     noteList = it
                 }
+                val context = LocalContext.current
+                var isFilled by remember {
+                    mutableStateOf(true)
+                }
+                var clearTextFieldTrigger by remember { mutableStateOf(false) }
+
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(15.dp),
-                    floatingActionButton = {
-                        Button(onClick = {
-                            viewModel.upsertNote(note)
-                            name = ""
-                            body = ""
-                        }) {
-                            Text(
-                                text = "Save",
-                                fontFamily = FontFamily.SansSerif
-                            )
-                        }
-                    }
                 ) { innerPadding ->
                     Column(
                         modifier = Modifier.padding(innerPadding),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+
+                        LaunchedEffect(key1 = clearTextFieldTrigger) {
+                            name = ""
+                            body = ""
+                        }
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
@@ -114,6 +117,7 @@ class MainActivity : ComponentActivity() {
                             },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
+                            isError = !isFilled
                         )
 
                         OutlinedTextField(
@@ -128,41 +132,47 @@ class MainActivity : ComponentActivity() {
                             singleLine = false,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp)
+                                .height(150.dp),
+                            isError = !isFilled
                         )
+                        Button(
+                            onClick = {
+                                if (name.isNotEmpty() && body.isNotEmpty()) {
+                                    viewModel.upsertNote(note)
+                                    clearTextFieldTrigger = !clearTextFieldTrigger
+
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Please fill all the fields",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    isFilled = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Save",
+                                fontFamily = FontFamily.SansSerif
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyColumn {
                             items(noteList) { note ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "Name: ${note.noteName}",
-                                            fontFamily = FontFamily.SansSerif,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                        Text(
-                                            text = "Body: ${note.noteBody}",
-                                            fontFamily = FontFamily.SansSerif,
-                                        )
-                                        HorizontalDivider(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                    IconButton(onClick = {
-                                        viewModel.deleteNote(note)
-                                    }) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Delete,
-                                            contentDescription = null
-                                        )
-                                    }
+                                Column {
+                                    NoteItem(
+                                        name = note.noteName,
+                                        body = note.noteBody,
+                                        onDelete = { viewModel.deleteNote(note) }
+                                    )
+
+                                    HorizontalDivider(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(6.dp)
+                                    )
+
                                 }
                             }
                         }
@@ -170,5 +180,39 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+
+@Composable
+fun NoteItem(name: String, body: String, onDelete: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(15.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text(
+                text = "Name: $name",
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "Body: $body",
+                fontFamily = FontFamily.SansSerif,
+            )
+        }
+        IconButton(
+            onClick = {
+                onDelete()
+            },
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Delete,
+                contentDescription = null
+            )
+        }
+
     }
 }
